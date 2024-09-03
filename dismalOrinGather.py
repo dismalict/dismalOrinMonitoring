@@ -29,7 +29,7 @@ def create_table_if_not_exists(cursor, table_name, fieldnames):
 
 def insert_data(cursor, table_name, data):
     placeholders = ', '.join(['%s'] * len(data))
-    columns = ', '.join(data.keys())
+    columns = ', '.join([f"`{col}`" for col in data.keys()])
     insert_query = f"INSERT INTO `{table_name}` ({columns}) VALUES ({placeholders})"
     cursor.execute(insert_query, list(data.values()))
 
@@ -56,8 +56,8 @@ def main():
 
         with jtop() as jetson:
             # Initialize the table name based on the hostname
-            hostname = socket.gethostname()
-            table_name = f"`{hostname.replace('.', '_')}`"
+            hostname = socket.gethostname().replace('.', '_')
+            table_name = f"{hostname}"
 
             # Initialize first stats to get fieldnames
             stats = jetson.stats
