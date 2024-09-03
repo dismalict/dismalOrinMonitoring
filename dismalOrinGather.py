@@ -2,10 +2,11 @@ from jtop import jtop, JtopException
 import argparse
 import mysql.connector
 from mysql.connector import Error
+import configparser
+import socket
 
 # Load database configuration from config file
 def load_config(filename='config.ini'):
-    import configparser
     config = configparser.ConfigParser()
     config.read(filename)
     return {
@@ -38,6 +39,7 @@ def main():
 
     db_config = load_config()
 
+    connection = None
     try:
         # Connect to MySQL database
         connection = mysql.connector.connect(
@@ -54,7 +56,6 @@ def main():
 
         with jtop() as jetson:
             # Initialize the table name based on the hostname
-            import socket
             hostname = socket.gethostname()
             table_name = f"`{hostname.replace('.', '_')}`"
 
@@ -77,7 +78,7 @@ def main():
     except KeyboardInterrupt:
         print("Closed with CTRL-C")
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             cursor.close()
             connection.close()
             print("MySQL connection closed")
