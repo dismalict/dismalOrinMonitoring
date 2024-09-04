@@ -72,7 +72,7 @@ def parse_jetson_release(output):
 
 def gather_device_info():
     """Gather detailed device information."""
-    jetson_release_output = run_command('jetson_release')
+    jetson_release_output = run_command('jetson_release -s')
     jetson_info = parse_jetson_release(jetson_release_output)
     
     return {
