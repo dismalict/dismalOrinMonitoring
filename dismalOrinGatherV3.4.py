@@ -18,14 +18,25 @@ def run_command(command):
 
 def remove_ansi_escape_sequences(text):
     """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F][\x00-\x7F])(?:[ -/]*[@-~])')
+    ansi_escape = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
+
+# Example usage
+raw_data = [
+    '[1mNVIDIA Orin Nano Developer Kit[0m - Jetpack [1m5.1.3[0m [L4T [1m35.5.0[0m]',
+    '[1m15W[0m',
+    '[0m[0m [XXX Show with: jetson_release -s XXX]',
+    '4.5.4 - with CUDA: [91mNO[0m'
+]
+
+cleaned_data = [remove_ansi_escape_sequences(item) for item in raw_data]
+print(cleaned_data)
 
 def parse_jetson_release(output):
     """Parse the output of jetson_release and return relevant information."""
     info = {}
     for line in output.split('\n'):
-        line = remove_ansi_escape_sequences(line)  # Clean up formatting characters
+        line = remove_ansi_escape_sequences(line)  # Clean up ANSI escape sequences
         if 'Model:' in line:
             info['model'] = line.split(':', 1)[1].strip()
         elif 'Jetpack' in line:
@@ -57,6 +68,7 @@ def parse_jetson_release(output):
         elif 'OpenCV' in line:
             info['opencv'] = line.split(':', 1)[1].strip()
     return info
+
 
 def gather_device_info():
     """Gather detailed device information."""
