@@ -6,7 +6,6 @@ from configparser import ConfigParser
 from datetime import datetime
 import psutil
 import subprocess
-import re
 
 def run_command(command):
     """Utility function to run a shell command and return its output."""
@@ -16,46 +15,52 @@ def run_command(command):
         output = None
     return output
 
+def parse_jetson_release(output):
+    """Parse the output of jetson_release and return relevant information."""
+    info = {}
+    for line in output.split('\n'):
+        if 'Model:' in line:
+            info['model'] = line.split(':', 1)[1].strip()
+        elif 'Jetpack' in line:
+            info['jetpack'] = line.split('[', 1)[1].split(']')[0].strip()
+        elif 'L4T' in line:
+            info['l4t'] = line.split('L4T ', 1)[1].strip()
+        elif 'NV Power Mode' in line:
+            info['nv_power_mode'] = line.split(':', 1)[1].strip()
+        elif 'Serial Number' in line:
+            info['serial_number'] = line.split(':', 1)[1].strip()
+        elif 'P-Number' in line:
+            info['p_number'] = line.split(':', 1)[1].strip()
+        elif 'Module' in line:
+            info['module'] = line.split(':', 1)[1].strip()
+        elif 'Distribution' in line:
+            info['distribution'] = line.split(':', 1)[1].strip()
+        elif 'Release' in line:
+            info['release'] = line.split(':', 1)[1].strip()
+        elif 'CUDA' in line:
+            info['cuda'] = line.split(':', 1)[1].strip()
+        elif 'cuDNN' in line:
+            info['cudnn'] = line.split(':', 1)[1].strip()
+        elif 'TensorRT' in line:
+            info['tensorrt'] = line.split(':', 1)[1].strip()
+        elif 'VPI' in line:
+            info['vpi'] = line.split(':', 1)[1].strip()
+        elif 'Vulkan' in line:
+            info['vulkan'] = line.split(':', 1)[1].strip()
+        elif 'OpenCV' in line:
+            info['opencv'] = line.split(':', 1)[1].strip()
+    return info
+
 def gather_device_info():
-    """Gather detailed device information from jetson_release."""
+    """Gather detailed device information."""
     jetson_release_output = run_command('jetson_release')
-    device_info = {}
-
-    if jetson_release_output:
-        lines = jetson_release_output.split('\n')
-        for line in lines:
-            line = line.strip()
-            if line.startswith('Model:'):
-                device_info['model'] = line.split(':', 1)[1].strip()
-            elif line.startswith('Jetpack:'):
-                device_info['jetpack'] = line.split(':', 1)[1].strip()
-            elif line.startswith('L4T:'):
-                device_info['l4t'] = line.split(':', 1)[1].strip()
-            elif line.startswith('NV Power Mode'):
-                device_info['nv_power_mode'] = line.split(':', 1)[1].strip()
-            elif line.startswith('Serial Number:'):
-                device_info['serial_number'] = line.split(':', 1)[1].strip()
-            elif line.startswith('Hardware'):
-                hardware_info = line.split('-')[1:]
-                device_info['p_number'] = hardware_info[0].strip() if len(hardware_info) > 0 else None
-                device_info['module'] = hardware_info[1].strip() if len(hardware_info) > 1 else None
-            elif line.startswith('Platform'):
-                platform_info = line.split('-')[1:]
-                device_info['distribution'] = platform_info[0].strip() if len(platform_info) > 0 else None
-                device_info['release'] = platform_info[1].strip() if len(platform_info) > 1 else None
-            elif line.startswith('Libraries'):
-                libs_info = line.split('-')[1:]
-                device_info['cuda'] = libs_info[0].strip() if len(libs_info) > 0 else None
-                device_info['cudnn'] = libs_info[1].strip() if len(libs_info) > 1 else None
-                device_info['tensorrt'] = libs_info[2].strip() if len(libs_info) > 2 else None
-                device_info['vpi'] = libs_info[3].strip() if len(libs_info) > 3 else None
-                device_info['vulkan'] = libs_info[4].strip() if len(libs_info) > 4 else None
-                device_info['opencv'] = libs_info[5].strip() if len(libs_info) > 5 else None
-
-    device_info['hostname'] = socket.gethostname()
-    device_info['ip_address'] = socket.gethostbyname(socket.gethostname())
-
-    return device_info
+    jetson_info = parse_jetson_release(jetson_release_output)
+    
+    return {
+        'hostname': socket.gethostname(),
+        'ip_address': socket.gethostbyname(socket.gethostname()),
+        **jetson_info
+    }
 
 def read_db_config(filename='config.ini', section='database'):
     parser = ConfigParser()
@@ -126,21 +131,21 @@ def create_table(cursor, table_name):
         `disk_available_gb` FLOAT,
         `hostname` VARCHAR(255),
         `ip_address` VARCHAR(50),
-        `model` VARCHAR(255),
-        `jetpack` VARCHAR(50),
-        `l4t` VARCHAR(50),
-        `nv_power_mode` VARCHAR(50),
-        `serial_number` VARCHAR(255),
-        `p_number` VARCHAR(255),
-        `module` VARCHAR(255),
-        `distribution` VARCHAR(255),
-        `release` VARCHAR(50),
-        `cuda` VARCHAR(50),
-        `cudnn` VARCHAR(50),
-        `tensorrt` VARCHAR(50),
-        `vpi` VARCHAR(50),
-        `vulkan` VARCHAR(50),
-        `opencv` VARCHAR(50)
+        `model` TEXT,
+        `jetpack` TEXT,
+        `l4t` TEXT,
+        `nv_power_mode` TEXT,
+        `serial_number` TEXT,
+        `p_number` TEXT,
+        `module` TEXT,
+        `distribution` TEXT,
+        `release` TEXT,
+        `cuda` TEXT,
+        `cudnn` TEXT,
+        `tensorrt` TEXT,
+        `vpi` TEXT,
+        `vulkan` TEXT,
+        `opencv` TEXT
     )
     """
     cursor.execute(create_table_query)
