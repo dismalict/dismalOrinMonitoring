@@ -19,36 +19,37 @@ def run_command(command):
 def parse_jetson_release(output):
     """Parse the output of jetson_release and return relevant information."""
     info = {}
-    
-    # Regular expressions to clean and extract data
-    regex_patterns = {
-        'model': r'Model:\s*(.*) - Jetpack',
-        'jetpack': r'Jetpack\s*(\S+)',
-        'l4t': r'L4T\s*(\S+)',
-        'nv_power_mode': r'NV Power Mode\[\d\]:\s*(\S+)',
-        'serial_number': r'Serial Number:\s*\[XXX Show with: jetson_release -s (\S+)\]',
-        'p_number': r'P-Number:\s*(\S+)',
-        'module': r'Module:\s*(.*)',
-        'distribution': r'Distribution:\s*(.*)',
-        'release': r'Release:\s*(.*)',
-        'cuda': r'CUDA:\s*(\S+)',
-        'cudnn': r'cuDNN:\s*(\S+)',
-        'tensorrt': r'TensorRT:\s*(\S+)',
-        'vpi': r'VPI:\s*(\S+)',
-        'vulkan': r'Vulkan:\s*(\S+)',
-        'opencv': r'OpenCV:\s*(.*) - with CUDA: (.*)',
-    }
-
     for line in output.split('\n'):
-        for key, pattern in regex_patterns.items():
-            match = re.search(pattern, line)
-            if match:
-                # Handle OpenCV case to include both version and CUDA support
-                if key == 'opencv':
-                    info['opencv'] = f"{match.group(1).strip()} - with CUDA: {match.group(2).strip()}"
-                else:
-                    info[key] = match.group(1).strip()
-                
+        if 'Model:' in line:
+            info['model'] = line.split(':', 1)[1].strip()
+        elif 'Jetpack' in line:
+            info['jetpack'] = line.split('[', 1)[1].split(']')[0].strip()
+        elif 'L4T' in line:
+            info['l4t'] = line.split('L4T ', 1)[1].strip()
+        elif 'NV Power Mode' in line:
+            info['nv_power_mode'] = line.split(':', 1)[1].strip()
+        elif 'Serial Number' in line:
+            info['serial_number'] = line.split(':', 1)[1].strip()
+        elif 'P-Number' in line:
+            info['p_number'] = line.split(':', 1)[1].strip()
+        elif 'Module' in line:
+            info['module'] = line.split(':', 1)[1].strip()
+        elif 'Distribution' in line:
+            info['distribution'] = line.split(':', 1)[1].strip()
+        elif 'Release' in line:
+            info['release'] = line.split(':', 1)[1].strip()
+        elif 'CUDA' in line:
+            info['cuda'] = line.split(':', 1)[1].strip()
+        elif 'cuDNN' in line:
+            info['cudnn'] = line.split(':', 1)[1].strip()
+        elif 'TensorRT' in line:
+            info['tensorrt'] = line.split(':', 1)[1].strip()
+        elif 'VPI' in line:
+            info['vpi'] = line.split(':', 1)[1].strip()
+        elif 'Vulkan' in line:
+            info['vulkan'] = line.split(':', 1)[1].strip()
+        elif 'OpenCV' in line:
+            info['opencv'] = line.split(':', 1)[1].strip()
     return info
 
 def gather_device_info():
@@ -136,16 +137,16 @@ def create_table(cursor, table_name):
         `l4t` VARCHAR(50),
         `nv_power_mode` VARCHAR(50),
         `serial_number` VARCHAR(255),
-        `p_number` VARCHAR(50),
+        `p_number` VARCHAR(255),
         `module` VARCHAR(255),
         `distribution` VARCHAR(255),
-        `release` VARCHAR(255),
+        `release` VARCHAR(50),
         `cuda` VARCHAR(50),
         `cudnn` VARCHAR(50),
         `tensorrt` VARCHAR(50),
         `vpi` VARCHAR(50),
         `vulkan` VARCHAR(50),
-        `opencv` VARCHAR(255)
+        `opencv` VARCHAR(50)
     )
     """
     cursor.execute(create_table_query)
@@ -224,26 +225,39 @@ def main():
                     'Power VDDRQ': stats.get('Power VDDRQ', 0),
                     'Power tj': stats.get('Power tj', 0),
                     'Power TOT': stats.get('Power TOT', 0),
-                    'jetson_clocks': stats.get('jetson_clocks'),
-                    'nvp model': stats.get('nvp model'),
+                    'jetson_clocks': stats.get('jetson_clocks', 'OFF'),
+                    'nvp model': stats.get('nvp model', 'UNKNOWN'),
                     'disk_available_gb': disk_space_gb,
-                    'hostname': hostname,
-                    'ip_address': socket.gethostbyname(hostname),
-                    **gather_device_info()  # Gather additional device info
+                    'hostname': device_info.get('hostname'),
+                    'ip_address': device_info.get('ip_address'),
+                    'model': device_info.get('model'),
+                    'jetpack': device_info.get('jetpack'),
+                    'l4t': device_info.get('l4t'),
+                    'nv_power_mode': device_info.get('nv_power_mode'),
+                    'serial_number': device_info.get('serial_number'),
+                    'p_number': device_info.get('p_number'),
+                    'module': device_info.get('module'),
+                    'distribution': device_info.get('distribution'),
+                    'release': device_info.get('release'),
+                    'cuda': device_info.get('cuda'),
+                    'cudnn': device_info.get('cudnn'),
+                    'tensorrt': device_info.get('tensorrt'),
+                    'vpi': device_info.get('vpi'),
+                    'vulkan': device_info.get('vulkan'),
+                    'opencv': device_info.get('opencv')
                 }
-
+                
                 insert_data(cursor, hostname, data)
                 connection.commit()
-                print(f"Logged data at {data['time']}")
 
-    except JtopException as e:
-        print(f"jtop Error: {e}")
     except Error as e:
         print(f"MySQL Error: {e}")
+
     finally:
         if connection.is_connected():
             cursor.close()
             connection.close()
+            print("MySQL connection is closed")
 
 if __name__ == "__main__":
     main()
