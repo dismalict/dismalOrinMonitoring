@@ -52,7 +52,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 7,
         "w": 10,
         "x": 0,
         "y": 0
@@ -127,29 +127,38 @@
         "type": "mysql",
         "uid": "cdwb8wn6cwa9sd"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
           "custom": {
             "align": "auto",
             "cellOptions": {
-              "type": "auto"
+              "applyToRow": true,
+              "mode": "gradient",
+              "type": "color-background",
+              "wrapText": true
             },
-            "inspect": false
+            "filterable": false,
+            "inspect": false,
+            "minWidth": 50
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "options": {
+                "hostname": {
+                  "index": 0,
+                  "text": "Hostname"
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
@@ -157,12 +166,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 11,
-        "x": 10,
+        "h": 4,
+        "w": 13,
+        "x": 11,
         "y": 0
       },
-      "id": 5,
+      "id": 9,
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -185,14 +194,32 @@
           },
           "editorMode": "builder",
           "format": "table",
-          "rawSql": "SELECT * FROM test.sfvis01 ORDER BY time DESC LIMIT 1 ",
+          "rawSql": "SELECT hostname, model, ip_address FROM test.sfvis01 ORDER BY time DESC LIMIT 1 ",
           "refId": "A",
           "sql": {
             "columns": [
               {
                 "parameters": [
                   {
-                    "name": "*",
+                    "name": "hostname",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "model",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "ip_address",
                     "type": "functionParameter"
                   }
                 ],
@@ -220,7 +247,204 @@
           "table": "sfvis01"
         }
       ],
-      "title": "Panel Title",
+      "title": "Board Info",
+      "transparent": true,
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "cdwb8wn6cwa9sd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "id"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 121
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "module"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 320
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tensorrt"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 109
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 13,
+        "x": 11,
+        "y": 4
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "md",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "11.1.3",
+      "targets": [
+        {
+          "dataset": "test",
+          "datasource": {
+            "type": "mysql",
+            "uid": "cdwb8wn6cwa9sd"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT p_number, id, cudnn, module, serial_number, tensorrt, vulkan FROM test.sfvis01 ORDER BY time DESC LIMIT 1 ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "p_number",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "id",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "cudnn",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "module",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "serial_number",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "tensorrt",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "vulkan",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 1,
+            "orderBy": {
+              "property": {
+                "name": "time",
+                "type": "string"
+              },
+              "type": "property"
+            },
+            "orderByDirection": "DESC"
+          },
+          "table": "sfvis01"
+        }
+      ],
+      "title": "Board Hardware Info",
+      "transparent": true,
       "type": "table"
     },
     {
@@ -254,10 +478,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 7,
+        "h": 7,
+        "w": 8,
         "x": 0,
-        "y": 6
+        "y": 7
       },
       "id": 2,
       "options": {
@@ -321,6 +545,7 @@
         }
       ],
       "title": "GPU Usage",
+      "transparent": true,
       "type": "gauge"
     },
     {
@@ -356,9 +581,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 7,
-        "y": 6
+        "w": 10,
+        "x": 8,
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -470,6 +695,7 @@
         }
       ],
       "title": "CPU Usage",
+      "transparent": true,
       "type": "bargauge"
     },
     {
@@ -504,8 +730,8 @@
       "gridPos": {
         "h": 6,
         "w": 6,
-        "x": 15,
-        "y": 6
+        "x": 18,
+        "y": 8
       },
       "id": 4,
       "options": {
@@ -561,6 +787,7 @@
         }
       ],
       "title": "Fan",
+      "transparent": true,
       "type": "gauge"
     },
     {
@@ -597,7 +824,7 @@
         "h": 6,
         "w": 4,
         "x": 0,
-        "y": 12
+        "y": 14
       },
       "id": 6,
       "options": {
@@ -628,7 +855,7 @@
           },
           "editorMode": "builder",
           "format": "table",
-          "rawSql": "SELECT RAM FROM test.sfvis01 LIMIT 50 ",
+          "rawSql": "SELECT RAM, SWAP FROM test.sfvis01 LIMIT 50 ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -636,6 +863,15 @@
                 "parameters": [
                   {
                     "name": "RAM",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "SWAP",
                     "type": "functionParameter"
                   }
                 ],
@@ -656,6 +892,7 @@
         }
       ],
       "title": "RAM Usage",
+      "transparent": true,
       "type": "bargauge"
     },
     {
@@ -696,7 +933,7 @@
         "h": 6,
         "w": 4,
         "x": 4,
-        "y": 12
+        "y": 14
       },
       "id": 7,
       "options": {
@@ -763,7 +1000,155 @@
         }
       ],
       "title": "Available Disk Space",
+      "transparent": true,
       "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "cdwb8wn6cwa9sd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 8,
+        "y": 14
+      },
+      "id": 8,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.1.3",
+      "targets": [
+        {
+          "dataset": "test",
+          "datasource": {
+            "type": "mysql",
+            "uid": "cdwb8wn6cwa9sd"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT `Temp CPU`, `Temp GPU`, `Temp SOC0`, `Temp SOC1`, `Temp SOC2`, `Temp tj` FROM test.sfvis01 ORDER BY time DESC LIMIT 1 ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "`Temp CPU`",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "`Temp GPU`",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "`Temp SOC0`",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "`Temp SOC1`",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "`Temp SOC2`",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "`Temp tj`",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 1,
+            "orderBy": {
+              "property": {
+                "name": "time",
+                "type": "string"
+              },
+              "type": "property"
+            },
+            "orderByDirection": "DESC"
+          },
+          "table": "sfvis01"
+        }
+      ],
+      "title": "Sensor Temperatures",
+      "transparent": true,
+      "type": "gauge"
     }
   ],
   "refresh": "auto",
@@ -780,6 +1165,6 @@
   "timezone": "browser",
   "title": "sfTestDash",
   "uid": "ddh12mtp2lkaob",
-  "version": 10,
+  "version": 12,
   "weekStart": ""
 }
