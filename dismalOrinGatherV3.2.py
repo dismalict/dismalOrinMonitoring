@@ -35,6 +35,7 @@ def parse_jetson_release(output):
         'cudnn': r'cuDNN:\s*(\S+)',
         'tensorrt': r'TensorRT:\s*(\S+)',
         'vpi': r'VPI:\s*(\S+)',
+        'vulkan': r'Vulkan:\s*(\S+)',
         'opencv': r'OpenCV:\s*(.*) - with CUDA: (.*)',
     }
 
