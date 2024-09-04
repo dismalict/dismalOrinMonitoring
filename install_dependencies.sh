@@ -11,7 +11,7 @@ then
 fi
 
 # Install required Python packages
-pip install --upgrade mysql-connector-python jtop psutil
+pip install --upgrade mysql-connector-python jetson_stats psutil
 
 # Ensure jtop is installed
 pip install jtop
