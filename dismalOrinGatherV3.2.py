@@ -6,6 +6,7 @@ from configparser import ConfigParser
 from datetime import datetime
 import psutil
 import subprocess
+import re
 
 def run_command(command):
     """Utility function to run a shell command and return its output."""
@@ -15,22 +16,51 @@ def run_command(command):
         output = None
     return output
 
+def parse_jetson_release(output):
+    """Parse the output of jetson_release and return relevant information."""
+    info = {}
+    for line in output.split('\n'):
+        if 'Model:' in line:
+            info['model'] = line.split(':', 1)[1].strip()
+        elif 'Jetpack' in line:
+            info['jetpack'] = line.split('[', 1)[1].split(']')[0].strip()
+        elif 'L4T' in line:
+            info['l4t'] = line.split('L4T ', 1)[1].strip()
+        elif 'NV Power Mode' in line:
+            info['nv_power_mode'] = line.split(':', 1)[1].strip()
+        elif 'Serial Number' in line:
+            info['serial_number'] = line.split(':', 1)[1].strip()
+        elif 'P-Number' in line:
+            info['p_number'] = line.split(':', 1)[1].strip()
+        elif 'Module' in line:
+            info['module'] = line.split(':', 1)[1].strip()
+        elif 'Distribution' in line:
+            info['distribution'] = line.split(':', 1)[1].strip()
+        elif 'Release' in line:
+            info['release'] = line.split(':', 1)[1].strip()
+        elif 'CUDA' in line:
+            info['cuda'] = line.split(':', 1)[1].strip()
+        elif 'cuDNN' in line:
+            info['cudnn'] = line.split(':', 1)[1].strip()
+        elif 'TensorRT' in line:
+            info['tensorrt'] = line.split(':', 1)[1].strip()
+        elif 'VPI' in line:
+            info['vpi'] = line.split(':', 1)[1].strip()
+        elif 'Vulkan' in line:
+            info['vulkan'] = line.split(':', 1)[1].strip()
+        elif 'OpenCV' in line:
+            info['opencv'] = line.split(':', 1)[1].strip()
+    return info
+
 def gather_device_info():
     """Gather detailed device information."""
+    jetson_release_output = run_command('jetson_release')
+    jetson_info = parse_jetson_release(jetson_release_output)
+    
     return {
         'hostname': socket.gethostname(),
-        'jetpack': run_command('jetson_release -v | grep -i "Jetpack" | awk \'{print $2}\''),
-        'l4t': run_command('jetson_release -v | grep -i "L4T" | awk \'{print $2}\''),
-        'board_model': run_command('jetson_release -v | grep -i "Board Model" | awk \'{print $3}\''),
-        'chip_id': run_command('jetson_release -v | grep -i "Chip ID" | awk \'{print $3}\''),
-        'codename': run_command('jetson_release -v | grep -i "Codename" | awk \'{print $2}\''),
-        'cuda_arch_bin': run_command('jetson_release -v | grep -i "CUDA Architecture" | awk \'{print $4}\''),
-        'module': run_command('jetson_release -v | grep -i "Module" | awk \'{print $2}\''),
-        'serial': run_command('jetson_release -v | grep -i "Serial Number" | awk \'{print $3}\''),
-        'soc': run_command('jetson_release -v | grep -i "SoC" | awk \'{print $2}\''),
         'ip_address': socket.gethostbyname(socket.gethostname()),
-        'p_number': run_command('jetson_release -v | grep -i "P-Number" | awk \'{print $2}\''),
-        'vulkan': run_command('jetson_release -v | grep -i "Vulkan" | awk \'{print $2}\''),
+        **jetson_info
     }
 
 def read_db_config(filename='config.ini', section='database'):
@@ -101,18 +131,22 @@ def create_table(cursor, table_name):
         `nvp model` VARCHAR(50),
         `disk_available_gb` FLOAT,
         `hostname` VARCHAR(255),
+        `ip_address` VARCHAR(50),
+        `model` VARCHAR(255),
         `jetpack` VARCHAR(50),
         `l4t` VARCHAR(50),
-        `board_model` VARCHAR(255),
-        `chip_id` VARCHAR(50),
-        `codename` VARCHAR(255),
-        `cuda_arch_bin` VARCHAR(50),
+        `nv_power_mode` VARCHAR(50),
+        `serial_number` VARCHAR(255),
+        `p_number` VARCHAR(255),
         `module` VARCHAR(255),
-        `serial` VARCHAR(255),
-        `soc` VARCHAR(50),
-        `ip_address` VARCHAR(50),
-        `p_number` VARCHAR(50),
-        `vulkan` VARCHAR(50)
+        `distribution` VARCHAR(255),
+        `release` VARCHAR(50),
+        `cuda` VARCHAR(50),
+        `cudnn` VARCHAR(50),
+        `tensorrt` VARCHAR(50),
+        `vpi` VARCHAR(50),
+        `vulkan` VARCHAR(50),
+        `opencv` VARCHAR(50)
     )
     """
     cursor.execute(create_table_query)
@@ -192,19 +226,33 @@ def main():
                     'Power tj': stats.get('Power tj', 0),
                     'Power TOT': stats.get('Power TOT', 0),
                     'jetson_clocks': stats.get('jetson_clocks', 'OFF'),
-                    'nvp model': stats.get('nvp model', 'N/A'),
+                    'nvp model': stats.get('nvp model', 'UNKNOWN'),
                     'disk_available_gb': disk_space_gb,
-                    **device_info  # Include device info
+                    'hostname': device_info.get('hostname'),
+                    'ip_address': device_info.get('ip_address'),
+                    'model': device_info.get('model'),
+                    'jetpack': device_info.get('jetpack'),
+                    'l4t': device_info.get('l4t'),
+                    'nv_power_mode': device_info.get('nv_power_mode'),
+                    'serial_number': device_info.get('serial_number'),
+                    'p_number': device_info.get('p_number'),
+                    'module': device_info.get('module'),
+                    'distribution': device_info.get('distribution'),
+                    'release': device_info.get('release'),
+                    'cuda': device_info.get('cuda'),
+                    'cudnn': device_info.get('cudnn'),
+                    'tensorrt': device_info.get('tensorrt'),
+                    'vpi': device_info.get('vpi'),
+                    'vulkan': device_info.get('vulkan'),
+                    'opencv': device_info.get('opencv')
                 }
+                
                 insert_data(cursor, hostname, data)
                 connection.commit()
-                print(f"Log at {data['time']}")
+
     except Error as e:
         print(f"MySQL Error: {e}")
-    except JtopException as e:
-        print(e)
-    except KeyboardInterrupt:
-        print("Closed with CTRL-C")
+
     finally:
         if connection.is_connected():
             cursor.close()
