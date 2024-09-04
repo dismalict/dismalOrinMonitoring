@@ -19,16 +19,18 @@ def gather_device_info():
     """Gather detailed device information."""
     return {
         'hostname': socket.gethostname(),
-        'jetpack': run_command('jetson_release -v | grep -i "jetpack" | awk \'{print $2}\''),
-        'l4t': run_command('jetson_release -v | grep -i "l4t" | awk \'{print $2}\''),
-        'board_model': run_command('cat /proc/device-tree/model'),
-        'chip_id': run_command('cat /proc/device-tree/chosen/nvidia,chip-id'),
-        'codename': run_command('uname -n'),
-        'cuda_arch_bin': run_command('nvcc --version | grep -o "compute_[0-9]*" | sed \'s/compute_//\''),
-        'module': run_command('cat /proc/device-tree/chosen/nvidia,module'),
-        'serial': run_command('cat /proc/device-tree/chosen/nvidia,serial'),
-        'soc': run_command('uname -m'),
-        'ip_address': socket.gethostbyname(socket.gethostname())
+        'jetpack': run_command('jetson_release -v | grep -i "Jetpack" | awk \'{print $2}\''),
+        'l4t': run_command('jetson_release -v | grep -i "L4T" | awk \'{print $2}\''),
+        'board_model': run_command('jetson_release -v | grep -i "Board Model" | awk \'{print $3}\''),
+        'chip_id': run_command('jetson_release -v | grep -i "Chip ID" | awk \'{print $3}\''),
+        'codename': run_command('jetson_release -v | grep -i "Codename" | awk \'{print $2}\''),
+        'cuda_arch_bin': run_command('jetson_release -v | grep -i "CUDA Architecture" | awk \'{print $4}\''),
+        'module': run_command('jetson_release -v | grep -i "Module" | awk \'{print $2}\''),
+        'serial': run_command('jetson_release -v | grep -i "Serial Number" | awk \'{print $3}\''),
+        'soc': run_command('jetson_release -v | grep -i "SoC" | awk \'{print $2}\''),
+        'ip_address': socket.gethostbyname(socket.gethostname()),
+        'p_number': run_command('jetson_release -v | grep -i "P-Number" | awk \'{print $2}\''),
+        'vulkan': run_command('jetson_release -v | grep -i "Vulkan" | awk \'{print $2}\''),
     }
 
 def read_db_config(filename='config.ini', section='database'):
@@ -108,7 +110,9 @@ def create_table(cursor, table_name):
         `module` VARCHAR(255),
         `serial` VARCHAR(255),
         `soc` VARCHAR(50),
-        `ip_address` VARCHAR(50)
+        `ip_address` VARCHAR(50),
+        `p_number` VARCHAR(50),
+        `vulkan` VARCHAR(50)
     )
     """
     cursor.execute(create_table_query)
