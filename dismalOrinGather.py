@@ -81,7 +81,7 @@ def gather_device_info():
         **jetson_info
     }
 
-def read_db_config(filename='config.ini', section='database'):
+def read_db_config(filename='backendItems/config.ini', section='database'):
     parser = ConfigParser()
     parser.read(filename)
     db = {}

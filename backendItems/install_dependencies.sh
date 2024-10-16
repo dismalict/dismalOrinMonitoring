@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Update package list
-#apt-get update
+apt-get update
 
 # Install pip if not installed
 if ! command -v pip &> /dev/null
