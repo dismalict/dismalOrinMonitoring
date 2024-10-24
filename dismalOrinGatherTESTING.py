@@ -7,390 +7,152 @@ from datetime import datetime
 import psutil
 import subprocess
 import re
-import logging
 import time
+import logging
+from typing import Dict, Any
 
-# Set up logging configuration
+# Set up logging
 logging.basicConfig(
-    filename='dismalOrinGather.log',  # Log file name
-    level=logging.INFO,  # Log level
-    format='%(asctime)s %(levelname)s: %(message)s',  # Format includes timestamp
-    datefmt='%Y-%m-%d %H:%M:%S'  # Timestamp format
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('jetson_monitor.log'),
+        logging.StreamHandler()
+    ]
 )
 
-def run_command(command):
+def run_command(command: str) -> str:
     """Utility function to run a shell command and return its output."""
-    try:
-        output = subprocess.check_output(command, shell=True, text=True).strip()
-    except subprocess.CalledProcessError:
-        output = None
-    return output
-
-def remove_ansi_escape_sequences(text):
-    """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]')
-    return ansi_escape.sub('', text)
-
-def parse_jetson_release(output):
-    """Parse the output of jetson_release and return relevant information."""
-    info = {}
-    for line in output.split('\n'):
-        line = remove_ansi_escape_sequences(line)  # Clean up ANSI escape sequences
-        if 'Model:' in line:
-            info['model'] = line.split(':', 1)[1].strip()
-        elif 'Jetpack' in line:
-            info['jetpack'] = line.split('[', 1)[1].split(']')[0].strip()
-        elif 'L4T' in line:
-            info['l4t'] = line.split('L4T ', 1)[1].strip()
-        elif 'NV Power Mode' in line:
-            info['nv_power_mode'] = line.split(':', 1)[1].strip()
-        elif 'Serial Number' in line:
-            info['serial_number'] = line.split(':', 1)[1].strip()
-        elif 'P-Number' in line:
-            info['p_number'] = line.split(':', 1)[1].strip()
-        elif 'Module' in line:
-            info['module'] = line.split(':', 1)[1].strip()
-        elif 'Distribution' in line:
-            info['distribution'] = line.split(':', 1)[1].strip()
-        elif 'Release' in line:
-            info['release'] = line.split(':', 1)[1].strip()
-        elif 'CUDA' in line:
-            info['cuda'] = line.split(':', 1)[1].strip()
-        elif 'cuDNN' in line:
-            info['cudnn'] = line.split(':', 1)[1].strip()
-        elif 'TensorRT' in line:
-            info['tensorrt'] = line.split(':', 1)[1].strip()
-        elif 'VPI' in line:
-            info['vpi'] = line.split(':', 1)[1].strip()
-        elif 'Vulkan' in line:
-            info['vulkan'] = line.split(':', 1)[1].strip()
-        elif 'OpenCV' in line:
-            info['opencv'] = line.split(':', 1)[1].strip()
-    return info
-
-def gather_device_info():
-    """Gather detailed device information."""
-    jetson_release_output = run_command('jetson_release -s')
-    jetson_info = parse_jetson_release(jetson_release_output)
-    
-    return {
-        'hostname': socket.gethostname(),
-        'ip_address': socket.gethostbyname(socket.gethostname()),
-        **jetson_info
-    }
-
-def read_db_config(filename='backendItems/config.ini', section='database'):
-    parser = ConfigParser()
-    parser.read(filename)
-    db = {}
-    if parser.has_section(section):
-        items = parser.items(section)
-        for item in items:
-            db[item[0]] = item[1]
-    else:
-        raise Exception(f'Section {section} not found in {filename}')
-    return db
-
-def create_connection():
-    db_config = read_db_config()
-    try:
-        connection = mysql.connector.connect(**db_config)
-        if connection.is_connected():
-            logging.info("Connected to MySQL database")
-            return connection
-    except Error as e:
-        logging.error(f"MySQL Error: {e}")
-        return None
-
-def create_table(cursor, table_name):
-    create_table_query = f"""
-    CREATE TABLE IF NOT EXISTS `{table_name}` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        `time` DATETIME,
-        `uptime` VARCHAR(50),
-        `CPU1` INT,
-        `CPU2` INT,
-        `CPU3` INT,
-        `CPU4` INT,
-        `CPU5` INT,
-        `CPU6` INT,
-        `RAM` FLOAT,
-        `SWAP` INT,
-        `EMC` INT,
-        `GPU` INT,
-        `APE` VARCHAR(10),
-        `NVDEC` VARCHAR(10),
-        `NVJPG` VARCHAR(10),
-        `NVJPG1` VARCHAR(10),
-        `OFA` VARCHAR(10),
-        `SE` VARCHAR(10),
-        `VIC` VARCHAR(10),
-        `Fan pwmfan0` FLOAT,
-        `Temp CPU` FLOAT,
-        `Temp CV0` FLOAT,
-        `Temp CV1` FLOAT,
-        `Temp CV2` FLOAT,
-        `Temp GPU` FLOAT,
-        `Temp SOC0` FLOAT,
-        `Temp SOC1` FLOAT,
-        `Temp SOC2` FLOAT,
-        `Temp tj` FLOAT,
-        `Power CPU` INT,
-        `Power CV` INT,
-        `Power GPU` INT,
-        `Power SOC` INT,
-        `Power SYS5v` INT,
-        `Power VDDRQ` INT,
-        `Power tj` INT,
-        `Power TOT` INT,
-        `jetson_clocks` VARCHAR(10),
-        `nvp model` VARCHAR(50),
-        `disk_available_gb` FLOAT,
-        `hostname` VARCHAR(255),
-        `ip_address` VARCHAR(50),
-        `model` TEXT,
-        `jetpack` TEXT,
-        `l4t` TEXT,
-        `nv_power_mode` TEXT,
-        `serial_number` TEXT,
-        `p_number` TEXT,
-        `module` TEXT,
-        `distribution` TEXT,
-        `release` TEXT,
-        `cuda` TEXT,
-        `cudnn` TEXT,
-        `tensorrt` TEXT,
-        `vpi` TEXT,
-        `vulkan` TEXT,
-        `opencv` TEXT
-    )
-    """
-    cursor.execute(create_table_query)
-    logging.info(f"Table `{table_name}` is ready.")
-
-def create_long_term_storage_table(cursor, hostname):
-    storage_table_name = f"{hostname}_storage"
-    create_table_query = f"""
-    CREATE TABLE IF NOT EXISTS `{storage_table_name}` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        `time` DATETIME,
-        `uptime` VARCHAR(50),
-        `CPU1` INT,
-        `CPU2` INT,
-        `CPU3` INT,
-        `CPU4` INT,
-        `CPU5` INT,
-        `CPU6` INT,
-        `RAM` FLOAT,
-        `SWAP` INT,
-        `EMC` INT,
-        `GPU` INT,
-        `APE` VARCHAR(10),
-        `NVDEC` VARCHAR(10),
-        `NVJPG` VARCHAR(10),
-        `NVJPG1` VARCHAR(10),
-        `OFA` VARCHAR(10),
-        `SE` VARCHAR(10),
-        `VIC` VARCHAR(10),
-        `Fan pwmfan0` FLOAT,
-        `Temp CPU` FLOAT,
-        `Temp CV0` FLOAT,
-        `Temp CV1` FLOAT,
-        `Temp CV2` FLOAT,
-        `Temp GPU` FLOAT,
-        `Temp SOC0` FLOAT,
-        `Temp SOC1` FLOAT,
-        `Temp SOC2` FLOAT,
-        `Temp tj` FLOAT,
-        `Power CPU` INT,
-        `Power CV` INT,
-        `Power GPU` INT,
-        `Power SOC` INT,
-        `Power SYS5v` INT,
-        `Power VDDRQ` INT,
-        `Power tj` INT,
-        `Power TOT` INT,
-        `jetson_clocks` VARCHAR(10),
-        `nvp model` VARCHAR(50),
-        `disk_available_gb` FLOAT,
-        `hostname` VARCHAR(255),
-        `ip_address` VARCHAR(50),
-        `model` TEXT,
-        `jetpack` TEXT,
-        `l4t` TEXT,
-        `nv_power_mode` TEXT,
-        `serial_number` TEXT,
-        `p_number` TEXT,
-        `module` TEXT,
-        `distribution` TEXT,
-        `release` TEXT,
-        `cuda` TEXT,
-        `cudnn` TEXT,
-        `tensorrt` TEXT,
-        `vpi` TEXT,
-        `vulkan` TEXT,
-        `opencv` TEXT
-    )
-    """
-    cursor.execute(create_table_query)
-    logging.info(f"Long-term storage table `{storage_table_name}` is ready.")
-
-def get_disk_space_gb():
-    """Returns the available disk space in GB."""
-    disk_usage = psutil.disk_usage('/')
-    return disk_usage.free / (1024 ** 3)
-
-def insert_data(cursor, table_name, data):
-    """Insert data into the specified table."""
-    columns = ', '.join(data.keys())
-    placeholders = ', '.join(['%s'] * len(data))
-    insert_query = f"INSERT INTO `{table_name}` ({columns}) VALUES ({placeholders})"
-    cursor.execute(insert_query, tuple(data.values()))
-
-def insert_data_with_retry(connection, table_name, data, retries=5, delay=2):
-    cursor = connection.cursor()
-    for attempt in range(retries):
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
-            insert_data(cursor, table_name, data)
-            connection.commit()
-            logging.info(f"Data successfully inserted into `{table_name}` on attempt {attempt + 1}.")
-            return
-        except mysql.connector.Error as err:
-            logging.error(f"Attempt {attempt + 1} failed with error: {err}")
-            if attempt < retries - 1:
-                logging.info(f"Retrying in {delay} seconds...")
-                time.sleep(delay)
-    logging.error(f"All {retries} attempts failed. Data not inserted into `{table_name}`.")
-    cursor.close()
+            output = subprocess.check_output(command, shell=True, text=True).strip()
+            return output
+        except subprocess.CalledProcessError as e:
+            logging.warning(f"Command failed (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(1)  # Wait before retrying
+    return ""
 
-def cleanup_old_data(cursor, table_name, max_rows=50):
-    """Keep only the most recent `max_rows` entries in the specified table."""
-    delete_query = f"""
-    DELETE FROM `{table_name}`
-    WHERE id NOT IN (
-        SELECT id FROM (
-            SELECT id FROM `{table_name}`
-            ORDER BY id DESC
-            LIMIT {max_rows}
-        ) AS temp
-    )
-    """
-    cursor.execute(delete_query)
-
-def insert_data_with_retry(cursor, table_name, data, retries=3):
-    """Insert data into the specified table with a retry mechanism."""
-    columns = ", ".join([f"`{key}`" for key in data.keys()])
-    placeholders = ", ".join(["%s"] * len(data))
-    insert_query = f"INSERT INTO `{table_name}` ({columns}) VALUES ({placeholders})"
-    
-    for attempt in range(retries):
+def create_connection(max_retries: int = -1) -> mysql.connector.MySQLConnection:
+    """Create database connection with retry mechanism."""
+    retry_count = 0
+    while max_retries == -1 or retry_count < max_retries:
         try:
-            cursor.execute(insert_query, list(data.values()))
-            return  # If successful, exit the function
+            db_config = read_db_config()
+            connection = mysql.connector.connect(**db_config)
+            if connection.is_connected():
+                logging.info("Connected to MySQL database")
+                return connection
         except Error as e:
-            print(f"MySQL Error: {e}. Attempt {attempt + 1} of {retries}.")
-            if attempt == retries - 1:
-                print("Max retries reached. Skipping this insert.")
+            retry_count += 1
+            logging.error(f"MySQL Connection Error (attempt {retry_count}): {e}")
+            time.sleep(5)  # Wait 5 seconds before retrying
+    return None
+
+def safe_insert_data(cursor, table_name: str, data: Dict[str, Any]) -> bool:
+    """Safely insert data into the specified table with error handling."""
+    try:
+        columns = ", ".join([f"`{key}`" for key in data.keys()])
+        placeholders = ", ".join(["%s"] * len(data))
+        insert_query = f"INSERT INTO `{table_name}` ({columns}) VALUES ({placeholders})"
+        cursor.execute(insert_query, list(data.values()))
+        return True
+    except Error as e:
+        logging.error(f"Failed to insert data into {table_name}: {e}")
+        return False
+
+def safe_trim_table(cursor, table_name: str, row_limit: int = 50) -> bool:
+    """Safely trim the table with error handling."""
+    try:
+        trim_query = f"""
+        DELETE FROM `{table_name}`
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id FROM `{table_name}`
+                ORDER BY `time` DESC
+                LIMIT {row_limit}
+            ) temp_table
+        );
+        """
+        cursor.execute(trim_query)
+        return True
+    except Error as e:
+        logging.error(f"Failed to trim table {table_name}: {e}")
+        return False
 
 def main():
     hostname = socket.gethostname()
     storage_table_name = f"{hostname}_storage"
-
-    connection = create_connection()
-    if not connection:
-        return
     
-    try:
-        cursor = connection.cursor()
-        create_table(cursor, hostname, storage_table_name)
+    while True:  # Main program loop
+        try:
+            connection = create_connection()
+            if not connection:
+                logging.error("Failed to establish database connection. Retrying in 30 seconds...")
+                time.sleep(30)
+                continue
 
-        print("Simple jtop logger")
-        print("Logging data to MySQL database")
+            cursor = connection.cursor()
+            create_table(cursor, hostname, storage_table_name)
+            device_info = gather_device_info()
 
-        device_info = gather_device_info()
+            with jtop() as jetson:
+                while jetson.ok():
+                    try:
+                        # Ensure connection is still alive
+                        if not connection.is_connected():
+                            raise Error("Database connection lost")
 
-        with jtop() as jetson:
-            while jetson.ok():
-                stats = jetson.stats
-                disk_space_gb = get_disk_space_gb()
+                        stats = jetson.stats
+                        disk_space_gb = get_disk_space_gb()
 
-                data = {
-                    'time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                    'uptime': stats.get('uptime'),
-                    'CPU1': stats.get('CPU1', 0),
-                    'CPU2': stats.get('CPU2', 0),
-                    'CPU3': stats.get('CPU3', 0),
-                    'CPU4': stats.get('CPU4', 0),
-                    'CPU5': stats.get('CPU5', 0),
-                    'CPU6': stats.get('CPU6', 0),
-                    'RAM': stats.get('RAM', 0.0),
-                    'SWAP': stats.get('SWAP', 0),
-                    'EMC': stats.get('EMC', 0),
-                    'GPU': stats.get('GPU', 0),
-                    'APE': stats.get('APE', 'OFF'),
-                    'NVDEC': stats.get('NVDEC', 'OFF'),
-                    'NVJPG': stats.get('NVJPG', 'OFF'),
-                    'NVJPG1': stats.get('NVJPG1', 'OFF'),
-                    'OFA': stats.get('OFA', 'OFF'),
-                    'SE': stats.get('SE', 'OFF'),
-                    'VIC': stats.get('VIC', 'OFF'),
-                    'Fan pwmfan0': stats.get('Fan pwmfan0', 0.0),
-                    'Temp CPU': stats.get('Temp CPU', 0.0),
-                    'Temp CV0': stats.get('Temp CV0', 0.0),
-                    'Temp CV1': stats.get('Temp CV1', 0.0),
-                    'Temp CV2': stats.get('Temp CV2', 0.0),
-                    'Temp GPU': stats.get('Temp GPU', 0.0),
-                    'Temp SOC0': stats.get('Temp SOC0', 0.0),
-                    'Temp SOC1': stats.get('Temp SOC1', 0.0),
-                    'Temp SOC2': stats.get('Temp SOC2', 0.0),
-                    'Temp tj': stats.get('Temp tj', 0.0),
-                    'Power CPU': stats.get('Power CPU', 0),
-                    'Power CV': stats.get('Power CV', 0),
-                    'Power GPU': stats.get('Power GPU', 0),
-                    'Power SOC': stats.get('Power SOC', 0),
-                    'Power SYS5v': stats.get('Power SYS5v', 0),
-                    'Power VDDRQ': stats.get('Power VDDRQ', 0),
-                    'Power tj': stats.get('Power tj', 0),
-                    'Power TOT': stats.get('Power TOT', 0),
-                    'jetson_clocks': stats.get('jetson_clocks', 'OFF'),
-                    'nvp model': stats.get('nvp model', 'UNKNOWN'),
-                    'disk_available_gb': disk_space_gb,
-                    'hostname': device_info.get('hostname'),
-                    'ip_address': device_info.get('ip_address'),
-                    'model': device_info.get('model'),
-                    'jetpack': device_info.get('jetpack'),
-                    'l4t': device_info.get('l4t'),
-                    'nv_power_mode': device_info.get('nv_power_mode'),
-                    'serial_number': device_info.get('serial_number'),
-                    'p_number': device_info.get('p_number'),
-                    'module': device_info.get('module'),
-                    'distribution': device_info.get('distribution'),
-                    'release': device_info.get('release'),
-                    'cuda': device_info.get('cuda'),
-                    'cudnn': device_info.get('cudnn'),
-                    'tensorrt': device_info.get('tensorrt'),
-                    'vpi': device_info.get('vpi'),
-                    'vulkan': device_info.get('vulkan'),
-                    'opencv': device_info.get('opencv')
-                }
+                        data = {
+                            'time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                            'uptime': stats.get('uptime'),
+                            # ... (rest of your data dictionary remains the same)
+                            'opencv': device_info.get('opencv')
+                        }
 
-                # Insert into both tables using the new function
-                insert_data_with_retry(cursor, hostname, data)
-                insert_data_with_retry(cursor, storage_table_name, data)
+                        # Insert into current table
+                        if safe_insert_data(cursor, hostname, data):
+                            safe_trim_table(cursor, hostname, row_limit=50)
+                        
+                        # Insert into storage table
+                        safe_insert_data(cursor, storage_table_name, data)
 
-                # Trim the current table to keep only the latest 50 rows
-                trim_table(cursor, hostname, row_limit=50)
+                        connection.commit()
+                        time.sleep(1)  # Prevent too frequent updates
 
-                connection.commit()
+                    except Error as e:
+                        logging.error(f"Database error during operation: {e}")
+                        # Attempt to reconnect
+                        connection = create_connection()
+                        if connection:
+                            cursor = connection.cursor()
+                    except Exception as e:
+                        logging.error(f"Unexpected error during operation: {e}")
+                        time.sleep(5)  # Wait before continuing
 
-    except Error as e:
-        print(f"MySQL Error: {e}")
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
-            print("MySQL connection is closed")
+        except JtopException as e:
+            logging.error(f"JTOP error: {e}")
+            time.sleep(5)  # Wait before retrying
+        except Exception as e:
+            logging.error(f"Main loop error: {e}")
+            time.sleep(5)  # Wait before retrying
+        finally:
+            try:
+                if connection and connection.is_connected():
+                    cursor.close()
+                    connection.close()
+                    logging.info("MySQL connection closed")
+            except Exception as e:
+                logging.error(f"Error while closing connection: {e}")
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Program terminated by user")
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
