@@ -241,8 +241,9 @@ def get_disk_space_gb():
     return disk_usage.free / (1024 ** 3)
 
 def insert_data(cursor, table_name, data):
-    columns = ", ".join([f"`{key}`" for key in data.keys()])
-    placeholders = ", ".join(["%s"] * len(data))
+    """Insert data into the specified table."""
+    columns = ', '.join(data.keys())
+    placeholders = ', '.join(['%s'] * len(data))
     insert_query = f"INSERT INTO `{table_name}` ({columns}) VALUES ({placeholders})"
     cursor.execute(insert_query, tuple(data.values()))
 
@@ -292,52 +293,52 @@ def main():
     logging.info("Simple jtop logger")
     while True:
         try:
-            stats = jtop().get_stats()  # gather stats
-            data = {
-                'time': datetime.now(),
-                'uptime': stats['uptime'],
-                'CPU1': stats['CPU'][0],
-                'CPU2': stats['CPU'][1],
-                'CPU3': stats['CPU'][2],
-                'CPU4': stats['CPU'][3],
-                'CPU5': stats['CPU'][4],
-                'CPU6': stats['CPU'][5],
-                'RAM': stats['RAM']['used'],
-                'SWAP': stats['SWAP']['used'],
-                'EMC': stats['EMC'],
-                'GPU': stats['GPU'],
-                'APE': stats['APE'],
-                'NVDEC': stats['NVDEC'],
-                'NVJPG': stats['NVJPG'],
-                'NVJPG1': stats['NVJPG1'],
-                'OFA': stats['OFA'],
-                'SE': stats['SE'],
-                'VIC': stats['VIC'],
-                'Fan pwmfan0': stats['Fan pwmfan0'],
-                'Temp CPU': stats['Temp CPU'],
-                'Temp CV0': stats['Temp CV0'],
-                'Temp CV1': stats['Temp CV1'],
-                'Temp CV2': stats['Temp CV2'],
-                'Temp GPU': stats['Temp GPU'],
-                'Temp SOC0': stats['Temp SOC0'],
-                'Temp SOC1': stats['Temp SOC1'],
-                'Temp SOC2': stats['Temp SOC2'],
-                'Temp tj': stats['Temp tj'],
-                'Power CPU': stats['Power CPU'],
-                'Power CV': stats['Power CV'],
-                'Power GPU': stats['Power GPU'],
-                'Power SOC': stats['Power SOC'],
-                'Power SYS5v': stats['Power SYS5v'],
-                'Power VDDRQ': stats['Power VDDRQ'],
-                'Power tj': stats['Power tj'],
-                'Power TOT': stats['Power TOT'],
-                'jetson_clocks': stats['jetson_clocks'],
-                'nvp model': stats['nvp model'],
-                'disk_available_gb': get_disk_space_gb(),
-                'hostname': socket.gethostname(),
-                'ip_address': socket.gethostbyname(socket.gethostname()),
-                **gather_device_info()  # Gather additional device info
-            }
+            with jtop() as stats:  # Use 'with' to correctly handle the jtop object
+                data = {
+                    'time': datetime.now(),
+                    'uptime': stats.uptime,
+                    'CPU1': stats.CPU[0],
+                    'CPU2': stats.CPU[1],
+                    'CPU3': stats.CPU[2],
+                    'CPU4': stats.CPU[3],
+                    'CPU5': stats.CPU[4],
+                    'CPU6': stats.CPU[5],
+                    'RAM': stats.RAM['used'],
+                    'SWAP': stats.SWAP['used'],
+                    'EMC': stats.EMC,
+                    'GPU': stats.GPU,
+                    'APE': stats.APE,
+                    'NVDEC': stats.NVDEC,
+                    'NVJPG': stats.NVJPG,
+                    'NVJPG1': stats.NVJPG1,
+                    'OFA': stats.OFA,
+                    'SE': stats.SE,
+                    'VIC': stats.VIC,
+                    'Fan pwmfan0': stats['Fan pwmfan0'],
+                    'Temp CPU': stats['Temp CPU'],
+                    'Temp CV0': stats['Temp CV0'],
+                    'Temp CV1': stats['Temp CV1'],
+                    'Temp CV2': stats['Temp CV2'],
+                    'Temp GPU': stats['Temp GPU'],
+                    'Temp SOC0': stats['Temp SOC0'],
+                    'Temp SOC1': stats['Temp SOC1'],
+                    'Temp SOC2': stats['Temp SOC2'],
+                    'Temp tj': stats['Temp tj'],
+                    'Power CPU': stats['Power CPU'],
+                    'Power CV': stats['Power CV'],
+                    'Power GPU': stats['Power GPU'],
+                    'Power SOC': stats['Power SOC'],
+                    'Power SYS5v': stats['Power SYS5v'],
+                    'Power VDDRQ': stats['Power VDDRQ'],
+                    'Power tj': stats['Power tj'],
+                    'Power TOT': stats['Power TOT'],
+                    'jetson_clocks': stats['jetson_clocks'],
+                    'nvp model': stats['nvp model'],
+                    'disk_available_gb': get_disk_space_gb(),
+                    'hostname': socket.gethostname(),
+                    'ip_address': socket.gethostbyname(socket.gethostname()),
+                    **gather_device_info()  # Gather additional device info
+                }
 
             # Insert data into the current table
             insert_data_with_retry(connection, table_name, data)
