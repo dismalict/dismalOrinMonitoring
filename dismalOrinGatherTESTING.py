@@ -277,85 +277,120 @@ def cleanup_old_data(cursor, table_name, max_rows=50):
     """
     cursor.execute(delete_query)
 
-def main():
-    connection = create_connection()
-    if connection is None:
-        return
-
-    cursor = connection.cursor()
+def insert_data_with_retry(cursor, table_name, data, retries=3):
+    """Insert data into the specified table with a retry mechanism."""
+    columns = ", ".join([f"`{key}`" for key in data.keys()])
+    placeholders = ", ".join(["%s"] * len(data))
+    insert_query = f"INSERT INTO `{table_name}` ({columns}) VALUES ({placeholders})"
     
-    hostname = socket.gethostname()
-    table_name = f"{hostname}"
-    
-    create_table(cursor, table_name)
-    create_long_term_storage_table(cursor, hostname)
-
-    logging.info("Simple jtop logger")
-    while True:
+    for attempt in range(retries):
         try:
-            with jtop() as stats:  # Use 'with' to correctly handle the jtop object
+            cursor.execute(insert_query, list(data.values()))
+            return  # If successful, exit the function
+        except Error as e:
+            print(f"MySQL Error: {e}. Attempt {attempt + 1} of {retries}.")
+            if attempt == retries - 1:
+                print("Max retries reached. Skipping this insert.")
+
+def main():
+    hostname = socket.gethostname()
+    storage_table_name = f"{hostname}_storage"
+
+    connection = create_connection()
+    if not connection:
+        return
+    
+    try:
+        cursor = connection.cursor()
+        create_table(cursor, hostname, storage_table_name)
+
+        print("Simple jtop logger")
+        print("Logging data to MySQL database")
+
+        device_info = gather_device_info()
+
+        with jtop() as jetson:
+            while jetson.ok():
+                stats = jetson.stats
+                disk_space_gb = get_disk_space_gb()
+
                 data = {
-                    'time': datetime.now(),
-                    'uptime': stats.uptime,
-                    'CPU1': stats.CPU[0],
-                    'CPU2': stats.CPU[1],
-                    'CPU3': stats.CPU[2],
-                    'CPU4': stats.CPU[3],
-                    'CPU5': stats.CPU[4],
-                    'CPU6': stats.CPU[5],
-                    'RAM': stats.RAM['used'],
-                    'SWAP': stats.SWAP['used'],
-                    'EMC': stats.EMC,
-                    'GPU': stats.GPU,
-                    'APE': stats.APE,
-                    'NVDEC': stats.NVDEC,
-                    'NVJPG': stats.NVJPG,
-                    'NVJPG1': stats.NVJPG1,
-                    'OFA': stats.OFA,
-                    'SE': stats.SE,
-                    'VIC': stats.VIC,
-                    'Fan pwmfan0': stats['Fan pwmfan0'],
-                    'Temp CPU': stats['Temp CPU'],
-                    'Temp CV0': stats['Temp CV0'],
-                    'Temp CV1': stats['Temp CV1'],
-                    'Temp CV2': stats['Temp CV2'],
-                    'Temp GPU': stats['Temp GPU'],
-                    'Temp SOC0': stats['Temp SOC0'],
-                    'Temp SOC1': stats['Temp SOC1'],
-                    'Temp SOC2': stats['Temp SOC2'],
-                    'Temp tj': stats['Temp tj'],
-                    'Power CPU': stats['Power CPU'],
-                    'Power CV': stats['Power CV'],
-                    'Power GPU': stats['Power GPU'],
-                    'Power SOC': stats['Power SOC'],
-                    'Power SYS5v': stats['Power SYS5v'],
-                    'Power VDDRQ': stats['Power VDDRQ'],
-                    'Power tj': stats['Power tj'],
-                    'Power TOT': stats['Power TOT'],
-                    'jetson_clocks': stats['jetson_clocks'],
-                    'nvp model': stats['nvp model'],
-                    'disk_available_gb': get_disk_space_gb(),
-                    'hostname': socket.gethostname(),
-                    'ip_address': socket.gethostbyname(socket.gethostname()),
-                    **gather_device_info()  # Gather additional device info
+                    'time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    'uptime': stats.get('uptime'),
+                    'CPU1': stats.get('CPU1', 0),
+                    'CPU2': stats.get('CPU2', 0),
+                    'CPU3': stats.get('CPU3', 0),
+                    'CPU4': stats.get('CPU4', 0),
+                    'CPU5': stats.get('CPU5', 0),
+                    'CPU6': stats.get('CPU6', 0),
+                    'RAM': stats.get('RAM', 0.0),
+                    'SWAP': stats.get('SWAP', 0),
+                    'EMC': stats.get('EMC', 0),
+                    'GPU': stats.get('GPU', 0),
+                    'APE': stats.get('APE', 'OFF'),
+                    'NVDEC': stats.get('NVDEC', 'OFF'),
+                    'NVJPG': stats.get('NVJPG', 'OFF'),
+                    'NVJPG1': stats.get('NVJPG1', 'OFF'),
+                    'OFA': stats.get('OFA', 'OFF'),
+                    'SE': stats.get('SE', 'OFF'),
+                    'VIC': stats.get('VIC', 'OFF'),
+                    'Fan pwmfan0': stats.get('Fan pwmfan0', 0.0),
+                    'Temp CPU': stats.get('Temp CPU', 0.0),
+                    'Temp CV0': stats.get('Temp CV0', 0.0),
+                    'Temp CV1': stats.get('Temp CV1', 0.0),
+                    'Temp CV2': stats.get('Temp CV2', 0.0),
+                    'Temp GPU': stats.get('Temp GPU', 0.0),
+                    'Temp SOC0': stats.get('Temp SOC0', 0.0),
+                    'Temp SOC1': stats.get('Temp SOC1', 0.0),
+                    'Temp SOC2': stats.get('Temp SOC2', 0.0),
+                    'Temp tj': stats.get('Temp tj', 0.0),
+                    'Power CPU': stats.get('Power CPU', 0),
+                    'Power CV': stats.get('Power CV', 0),
+                    'Power GPU': stats.get('Power GPU', 0),
+                    'Power SOC': stats.get('Power SOC', 0),
+                    'Power SYS5v': stats.get('Power SYS5v', 0),
+                    'Power VDDRQ': stats.get('Power VDDRQ', 0),
+                    'Power tj': stats.get('Power tj', 0),
+                    'Power TOT': stats.get('Power TOT', 0),
+                    'jetson_clocks': stats.get('jetson_clocks', 'OFF'),
+                    'nvp model': stats.get('nvp model', 'UNKNOWN'),
+                    'disk_available_gb': disk_space_gb,
+                    'hostname': device_info.get('hostname'),
+                    'ip_address': device_info.get('ip_address'),
+                    'model': device_info.get('model'),
+                    'jetpack': device_info.get('jetpack'),
+                    'l4t': device_info.get('l4t'),
+                    'nv_power_mode': device_info.get('nv_power_mode'),
+                    'serial_number': device_info.get('serial_number'),
+                    'p_number': device_info.get('p_number'),
+                    'module': device_info.get('module'),
+                    'distribution': device_info.get('distribution'),
+                    'release': device_info.get('release'),
+                    'cuda': device_info.get('cuda'),
+                    'cudnn': device_info.get('cudnn'),
+                    'tensorrt': device_info.get('tensorrt'),
+                    'vpi': device_info.get('vpi'),
+                    'vulkan': device_info.get('vulkan'),
+                    'opencv': device_info.get('opencv')
                 }
 
-            # Insert data into the current table
-            insert_data_with_retry(connection, table_name, data)
+                # Insert into both tables using the new function
+                insert_data_with_retry(cursor, hostname, data)
+                insert_data_with_retry(cursor, storage_table_name, data)
 
-            # Cleanup old data in the current table
-            cleanup_old_data(cursor, table_name)
+                # Trim the current table to keep only the latest 50 rows
+                trim_table(cursor, hostname, row_limit=50)
 
-            time.sleep(2)
+                connection.commit()
 
-        except JtopException as e:
-            logging.error(f"Jtop Exception: {e}")
-            time.sleep(5)  # Wait before retrying if jtop fails
-        except Exception as e:
-            logging.error(f"Unexpected error: {e}")
+    except Error as e:
+        print(f"MySQL Error: {e}")
 
-    cursor.close()
-    connection.close()
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+            print("MySQL connection is closed")
 
 if __name__ == '__main__':
     main()
