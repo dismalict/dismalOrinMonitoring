@@ -21,22 +21,11 @@ def remove_ansi_escape_sequences(text):
     ansi_escape = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-# Example usage
-raw_data = [
-    '[1mNVIDIA Orin Nano Developer Kit[0m - Jetpack [1m5.1.3[0m [L4T [1m35.5.0[0m]',
-    '[1m15W[0m',
-    '[0m[0m [XXX Show with: jetson_release -s XXX]',
-    '4.5.4 - with CUDA: [91mNO[0m'
-]
-
-cleaned_data = [remove_ansi_escape_sequences(item) for item in raw_data]
-print(cleaned_data)
-
 def parse_jetson_release(output):
     """Parse the output of jetson_release and return relevant information."""
     info = {}
     for line in output.split('\n'):
-        line = remove_ansi_escape_sequences(line)  # Clean up ANSI escape sequences
+        line = remove_ansi_escape_sequences(line)
         if 'Model:' in line:
             info['model'] = line.split(':', 1)[1].strip()
         elif 'Jetpack' in line:
@@ -68,7 +57,6 @@ def parse_jetson_release(output):
         elif 'OpenCV' in line:
             info['opencv'] = line.split(':', 1)[1].strip()
     return info
-
 
 def gather_device_info():
     """Gather detailed device information."""
@@ -104,8 +92,9 @@ def create_connection():
         print(f"MySQL Error: {e}")
         return None
 
-def create_table(cursor, table_name):
-    create_table_query = f"""
+def create_table(cursor, table_name, storage_table_name):
+    # Create main table
+    create_main_table_query = f"""
     CREATE TABLE IF NOT EXISTS `{table_name}` (
         id INT AUTO_INCREMENT PRIMARY KEY,
         `time` DATETIME,
@@ -167,8 +156,74 @@ def create_table(cursor, table_name):
         `opencv` TEXT
     )
     """
-    cursor.execute(create_table_query)
+    cursor.execute(create_main_table_query)
     print(f"Table `{table_name}` is ready.")
+
+    # Create long-term storage table
+    create_storage_table_query = f"""
+    CREATE TABLE IF NOT EXISTS `{storage_table_name}` (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        `time` DATETIME,
+        `uptime` VARCHAR(50),
+        `CPU1` INT,
+        `CPU2` INT,
+        `CPU3` INT,
+        `CPU4` INT,
+        `CPU5` INT,
+        `CPU6` INT,
+        `RAM` FLOAT,
+        `SWAP` INT,
+        `EMC` INT,
+        `GPU` INT,
+        `APE` VARCHAR(10),
+        `NVDEC` VARCHAR(10),
+        `NVJPG` VARCHAR(10),
+        `NVJPG1` VARCHAR(10),
+        `OFA` VARCHAR(10),
+        `SE` VARCHAR(10),
+        `VIC` VARCHAR(10),
+        `Fan pwmfan0` FLOAT,
+        `Temp CPU` FLOAT,
+        `Temp CV0` FLOAT,
+        `Temp CV1` FLOAT,
+        `Temp CV2` FLOAT,
+        `Temp GPU` FLOAT,
+        `Temp SOC0` FLOAT,
+        `Temp SOC1` FLOAT,
+        `Temp SOC2` FLOAT,
+        `Temp tj` FLOAT,
+        `Power CPU` INT,
+        `Power CV` INT,
+        `Power GPU` INT,
+        `Power SOC` INT,
+        `Power SYS5v` INT,
+        `Power VDDRQ` INT,
+        `Power tj` INT,
+        `Power TOT` INT,
+        `jetson_clocks` VARCHAR(10),
+        `nvp model` VARCHAR(50),
+        `disk_available_gb` FLOAT,
+        `hostname` VARCHAR(255),
+        `ip_address` VARCHAR(50),
+        `model` TEXT,
+        `jetpack` TEXT,
+        `l4t` TEXT,
+        `nv_power_mode` TEXT,
+        `serial_number` TEXT,
+        `p_number` TEXT,
+        `module` TEXT,
+        `distribution` TEXT,
+        `release` TEXT,
+        `cuda` TEXT,
+        `cudnn` TEXT,
+        `tensorrt` TEXT,
+        `vpi` TEXT,
+        `vulkan` TEXT,
+        `opencv` TEXT
+    )
+    """
+    cursor.execute(create_storage_table_query)
+    print(f"Long-term storage table `{storage_table_name}` is ready.")
 
 def get_disk_space_gb():
     """Returns the available disk space in GB."""
@@ -184,27 +239,43 @@ def insert_data(cursor, table_name, data):
     except Error as e:
         print(f"MySQL Error: {e}")
 
+def trim_table(cursor, table_name, row_limit=50):
+    # Remove rows if the row count exceeds the limit
+    trim_query = f"""
+    DELETE FROM `{table_name}`
+    WHERE id NOT IN (
+        SELECT id FROM (
+            SELECT id FROM `{table_name}`
+            ORDER BY `time` DESC
+            LIMIT {row_limit}
+        ) temp_table
+    );
+    """
+    cursor.execute(trim_query)
+    print(f"Trimmed `{table_name}` to {row_limit} rows.")
+
 def main():
     hostname = socket.gethostname()
+    storage_table_name = f"{hostname}_storage"  # Define the storage table name
+
     connection = create_connection()
     if not connection:
         return
     
     try:
         cursor = connection.cursor()
-        create_table(cursor, hostname)
+        create_table(cursor, hostname, storage_table_name)  # Create both tables
         
         print("Simple jtop logger")
         print("Logging data to MySQL database")
-        
-        device_info = gather_device_info()  # Gather device information
-        
+
+        device_info = gather_device_info()
+
         with jtop() as jetson:
             while jetson.ok():
                 stats = jetson.stats
                 disk_space_gb = get_disk_space_gb()
 
-                # Handle possible NULL values and set default if None is found
                 data = {
                     'time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                     'uptime': stats.get('uptime'),
@@ -264,8 +335,14 @@ def main():
                     'vulkan': device_info.get('vulkan'),
                     'opencv': device_info.get('opencv')
                 }
-                
-                insert_data(cursor, hostname, data)
+
+                # Insert into both tables
+                insert_data(cursor, hostname, data)  # Insert into the current table
+                insert_data(cursor, storage_table_name, data)  # Insert into the long-term storage table
+
+                # Trim the current table to keep only the latest 50 rows
+                trim_table(cursor, hostname, row_limit=50)
+
                 connection.commit()
 
     except Error as e:
@@ -277,5 +354,5 @@ def main():
             connection.close()
             print("MySQL connection is closed")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
