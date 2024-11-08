@@ -252,8 +252,7 @@ def trim_table(cursor, table_name, row_limit=50):
     );
     """
     cursor.execute(trim_query)
-    print(f"Trimmed `{table_name}` to {row_limit} rows.")
-
+    
 def main():
     hostname = socket.gethostname()
     storage_table_name = f"{hostname}_storage"  # Define the storage table name
@@ -336,7 +335,9 @@ def main():
                     'opencv': device_info.get('opencv')
                 }
                 stats = jetson.stats
-                print("Current stats keys:", stats.keys())  # Print available keys
+                #print("Current stats keys:", stats.keys())  # Print available keys
+                print("Data Inserted", datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+                
                 # Insert into both tables
                 insert_data(cursor, hostname, data)  # Insert into the current table
                 insert_data(cursor, storage_table_name, data)  # Insert into the long-term storage table
@@ -345,6 +346,8 @@ def main():
                 trim_table(cursor, hostname, row_limit=50)
 
                 connection.commit()
+                #interval which the data sends
+                time.sleep(1)
 
     except Error as e:
         print(f"MySQL Error: {e}")
