@@ -2,6 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 from jtop import jtop, JtopException
 import socket
+import time
 from configparser import ConfigParser
 from datetime import datetime
 import psutil
@@ -336,7 +337,7 @@ def main():
                 }
                 stats = jetson.stats
                 #print("Current stats keys:", stats.keys())  # Print available keys
-                print("Data Inserted", datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+                print("Data Inserted", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 
                 # Insert into both tables
                 insert_data(cursor, hostname, data)  # Insert into the current table
